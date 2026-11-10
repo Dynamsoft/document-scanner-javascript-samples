@@ -7,20 +7,15 @@
 		"build": "ng build"
 	},
 	"dependencies": {
-		"@angular/core": "^22.0.2",
-		"@angular/platform-browser": "^22.0.2",
+		"@angular/core": "^22.2.5",
+		"@angular/platform-browser": "^22.2.5",
 		"dynamsoft-document-scanner": "1.5.0"
 	},
 	"devDependencies": {
-		"@angular/build": "^22.0.3",
-		"@angular/cli": "^22.0.3",
-		"@angular/compiler-cli": "^22.0.2",
-		"vite-plus": "0.2.6"
-	},
-	"overrides": {
-		"@babel/core": "7.29.7",
-		"esbuild": "0.28.1",
-		"piscina": "5.2.0"
+		"@angular/build": "^22.2.6",
+		"@angular/cli": "^22.2.6",
+		"@angular/compiler-cli": "^22.2.5",
+		"vite-plus": "1.5.1"
 	},
 	"devEngines": {
 		"runtime": {
@@ -28,6 +23,5 @@
 			"version": ">=24.15.0",
 			"onFail": "error"
 		}
-	},
-	"//": "overrides force-patch transitive build-time deps flagged by npm audit"
+	}
 }
