@@ -41,6 +41,10 @@
 					"options": {
 						"host": "0.0.0.0",
 						"ssl": true,
+						"headers": {
+							"Cross-Origin-Opener-Policy": "same-origin",
+							"Cross-Origin-Embedder-Policy": "require-corp"
+						},
 						"prebundle": {
 							"exclude": [
 								"@dynamsoft/document-scanner",

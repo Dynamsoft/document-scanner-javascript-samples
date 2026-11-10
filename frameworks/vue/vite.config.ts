@@ -18,6 +18,14 @@ for (const engine of ["dynamsoft-capture-vision-bundle", "dynamsoft-document-vie
 	cpSync(`${source}/package.json`, `${target}/package.json`);
 }
 
+// Cross-origin isolation lets DCV use its multi-threaded (pthread) WASM. This
+// sample loads nothing from another origin, so "require-corp" works, also in
+// Safari.
+const isolation = {
+	"Cross-Origin-Opener-Policy": "same-origin",
+	"Cross-Origin-Embedder-Policy": "require-corp",
+};
+
 export default defineConfig({
 	plugins: [basicSsl(), vue()],
 	// Root config ignores this directory for lint
@@ -29,5 +37,9 @@ export default defineConfig({
 	server: {
 		host: true,
 		forwardConsole: true,
+		headers: isolation,
+	},
+	preview: {
+		headers: isolation,
 	},
 });

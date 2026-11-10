@@ -18,6 +18,16 @@ for (const engine of ["dynamsoft-capture-vision-bundle", "dynamsoft-document-vie
 	cpSync(`${source}/package.json`, `${target}/package.json`);
 }
 
+// Cross-origin isolation lets DCV use its multi-threaded (pthread) WASM.
+// "credentialless", unlike "require-corp", also loads cross-origin scripts that
+// send no CORP header, such as the deploy build's GTM and Comm100. Safari does
+// not support it, so Safari stays without isolation. deployment/web.config
+// sends the same headers.
+const isolation = {
+	"Cross-Origin-Opener-Policy": "same-origin",
+	"Cross-Origin-Embedder-Policy": "credentialless",
+};
+
 export default defineConfig({
 	// Root config ignores this directory for lint
 	lint: {
@@ -31,5 +41,9 @@ export default defineConfig({
 	plugins: [basicSsl(), deployment()],
 	server: {
 		host: true,
+		headers: isolation,
+	},
+	preview: {
+		headers: isolation,
 	},
 });
