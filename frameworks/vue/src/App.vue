@@ -4,7 +4,13 @@
 			<h2 class="mds-title-text">Hello World for Vue</h2>
 		</div>
 		<div class="mds-result-container">
-			<img v-if="result.image" class="result-img" :src="result.image" alt="scanned document" />
+			<img
+				v-for="(image, index) in result.images"
+				:key="index"
+				class="result-img"
+				:src="image"
+				:alt="`Scanned page ${index + 1}`"
+			/>
 			<div v-if="result.message" class="result-data">{{ result.message }}</div>
 		</div>
 	</div>
@@ -12,48 +18,47 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from "vue";
-import { DocumentScanner } from "dynamsoft-document-scanner";
+import { DocumentScanner, type ScanResult } from "@dynamsoft/document-scanner";
 
-const result = ref({ image: "", message: "" });
-let documentScanner: DocumentScanner | null = null;
+// The page images to show, or the reason there are none.
+type Shown = { images: string[]; message: string };
+
+const result = ref<Shown>({ images: [], message: "" });
+
+const documentScanner = new DocumentScanner({
+	license: "YOUR_LICENSE_KEY_HERE", // Replace with your Dynamsoft license key
+	// Self-host the engines, which vite.config.ts copies into public/engine/.
+	resources: {
+		captureVision: { dcvBundle: "/engine/dynamsoft-capture-vision-bundle/dist" },
+		documentViewer: "/engine/dynamsoft-document-viewer/dist/engine",
+	},
+});
+
+// Draw each scanned page, or say why there is none.
+async function describe(scan: ScanResult): Promise<Shown> {
+	switch (scan.status) {
+		case "success": {
+			const canvases = await Promise.all(scan.pages.map((page) => page.processed.toCanvas()));
+			return { images: canvases.map((canvas) => canvas.toDataURL("image/png")), message: "" };
+		}
+		case "cancelled":
+			return { images: [], message: "No document scanned. Reload the page to try again." };
+		case "failed":
+			return { images: [], message: `The scan failed: ${scan.error.message}` };
+	}
+}
 
 onMounted(async () => {
 	try {
-		documentScanner = new DocumentScanner({
-			license: "YOUR_LICENSE_KEY_HERE", // Replace with your Dynamsoft license key
-			// Self-host the engine, runtime data, and camera UI (mirrored into
-			// public/ by vite.config.ts).
-			engineResourcePaths: {
-				dcvBundle: "/dynamsoft-capture-vision-bundle/dist",
-				dcvData: "/dynamsoft-capture-vision-data",
-			},
-			scannerViewConfig: {
-				cameraEnhancerUIPath: "/dynamsoft-document-scanner/dist/document-scanner.ui.xml",
-				enableAutoCropMode: true,
-				enableSmartCaptureMode: true,
-			},
-		});
-
-		const scanResult = await documentScanner.launch();
-
-		if (scanResult?.correctedImageResult) {
-			result.value = {
-				image: scanResult.correctedImageResult.toCanvas().toDataURL("image/png"),
-				message: "",
-			};
-		} else {
-			result.value = { image: "", message: "No image scanned. Please try again." };
-		}
+		result.value = await describe(await documentScanner.scan());
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		console.error(message);
-		alert(message);
+		result.value = { images: [], message: `Could not show the scan: ${message}` };
 	}
 });
 
 onBeforeUnmount(() => {
-	documentScanner?.dispose();
-	documentScanner = null;
+	documentScanner.dispose();
 });
 </script>
 

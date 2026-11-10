@@ -11,5 +11,5 @@ $<HTMLButtonElement>("desktop-proceed").addEventListener("click", startScanFlow)
 document.querySelector<HTMLButtonElement>(".btn-rescan")!.addEventListener("click", restartScan);
 document.querySelector<HTMLButtonElement>(".btn-download")!.addEventListener("click", downloadPdf);
 
-// Warm both SDKs in the background so the first scan starts instantly.
+// Load the engines in the background, so that the first scan starts at once.
 preloadScanner();

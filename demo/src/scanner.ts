@@ -1,160 +1,86 @@
-// Scan-flow orchestration — owns the DocumentScanner instance and the stage
-// transitions between landing, the camera/edit-viewer loop, and the result view.
+// One DocumentScanner runs each scan, and its result decides which view comes
+// next.
 
-import { DocumentScanner } from "dynamsoft-document-scanner";
-import { $ } from "./dom.js";
-import { setScannerOverlayOpen, showLanding, showScanner } from "./view.js";
-import { clearDocument, ensureDdv, getDoc, onHubClose, onScanClick } from "./ddv.js";
+import { DocumentScanner } from "@dynamsoft/document-scanner";
+import { $, showError } from "./dom.js";
+import { showLanding, showPhase, showScanner } from "./view.js";
 import { enterResult, leaveResult } from "./results.js";
-import { LICENSE } from "./license.js";
 
 const homeError = $("home-error");
-const startCameraScanButton = $<HTMLButtonElement>("startCameraScan");
-const desktopProceedButton = $<HTMLButtonElement>("desktop-proceed");
+const scanButtons = [
+	$<HTMLButtonElement>("startCameraScan"),
+	$<HTMLButtonElement>("desktop-proceed"),
+	document.querySelector<HTMLButtonElement>(".btn-rescan")!,
+];
 
-let documentScanner: DocumentScanner | null = null;
-let scannerOpen = false;
-let closeToLanding = false;
-let ready: Promise<void> | null = null;
+// vite.config.ts copies the engines' runtime files into public/engine/. The
+// base path is relative, and a worker resolves a relative URL against its own
+// script, so make each URL absolute.
+const engineUrl = (path: string): string =>
+	new URL(`${import.meta.env.BASE_URL}engine/${path}`, document.baseURI).href;
 
-// Repurpose the scanner view's close (X): by default it ends the scan loop
-// like "Done" and drops back to the hub. Flag the click (acted on once
-// launch() resolves) so it leaves to the landing instead. The camera UI
-// lives in an open shadow root, so match the composed path — event.target
-// is retargeted to the shadow host. Only ".dce-mn-close" matches; "Done" is unaffected.
-// Registered once at module scope so init() retries don't stack listeners.
-document.addEventListener(
-	"click",
-	(event) => {
-		if (
-			event
-				.composedPath()
-				.some((el) => el instanceof Element && el.classList.contains("dce-mn-close"))
-		)
-			closeToLanding = true;
+const documentScanner = new DocumentScanner({
+	// Set VITE_DYNAMSOFT_LICENSE, for example in .env.local, to use your own key.
+	// Without it, the document scanner uses the public trial license. Request a
+	// 30-day trial key: https://www.dynamsoft.com/customer/license/trialLicense/?product=mds
+	license: import.meta.env.VITE_DYNAMSOFT_LICENSE,
+	resources: {
+		captureVision: { dcvBundle: engineUrl("dynamsoft-capture-vision-bundle/dist") },
+		documentViewer: engineUrl("dynamsoft-document-viewer/dist/engine"),
 	},
-	true,
-);
+	output: { format: "pdf" },
+});
 
-// One-time init of both SDKs, memoized. The DDV document must exist before
-// onDocumentScanned can load pages into it, so ensureDdv() runs first.
-function ensureScanner(): Promise<void> {
-	return (ready ??= init());
-}
+documentScanner.on("navigate", (navigation) => {
+	if (navigation.type === "phase") showPhase(navigation.to);
+});
 
-async function init(): Promise<void> {
-	await ensureDdv();
-	documentScanner = new DocumentScanner({
-		license: LICENSE,
-		container: $("scanner-container"),
-		engineResourcePaths: {
-			dcvBundle: `${import.meta.env.BASE_URL}dynamsoft-capture-vision-bundle/dist`,
-			dcvData: `${import.meta.env.BASE_URL}dynamsoft-capture-vision-data`,
-		},
-		scannerViewConfig: {
-			cameraEnhancerUIPath: `${import.meta.env.BASE_URL}document-scanner.ui.xml`,
-			enableAutoCropMode: true,
-			enableSmartCaptureMode: true,
-		},
-		enableContinuousScanning: true,
-		onDocumentScanned: async (result) => {
-			try {
-				const corrected = result.correctedImageResult;
-				if (!corrected) return;
-				// JPEG via canvas keeps the page blobs small before they enter the DDV document.
-				const canvas = corrected.toCanvas();
-				const blob = await new Promise<Blob | null>((resolve) => {
-					canvas.toBlob((b) => resolve(b), "image/jpeg", 0.9);
-				});
-				if (blob) await getDoc().loadSource([{ convertMode: "cm/auto", fileData: blob }]);
-			} catch (error) {
-				console.error("Error adding scanned page to the document:", error);
-			}
-		},
-	});
-	// The hub's toolbar buttons drive the flow from here on.
-	onScanClick(() => void launchCamera());
-	onHubClose(() => void finishScanning());
-	// Warm the scanner's engines (DCV WASM, templates, camera UI) so the first
-	// launch opens the camera without the init delay.
-	await documentScanner.initialize();
-}
-
-// Mounts the camera overlay over the hub; resolves when the user exits the
-// scanner (continuous mode collects pages via onDocumentScanned).
-async function launchCamera(): Promise<void> {
-	if (scannerOpen || !documentScanner) return;
-	scannerOpen = true;
-	closeToLanding = false;
-	setScannerOverlayOpen(true);
-	try {
-		await documentScanner.launch();
-	} finally {
-		setScannerOverlayOpen(false);
-		scannerOpen = false;
-	}
-	// Close (X) pressed: discard in-progress pages instead of going to the hub/result.
-	if (closeToLanding) {
-		clearDocument();
-		showLanding();
-	}
-}
-
-// Hub close button: nothing scanned -> landing; otherwise -> result view.
-async function finishScanning(): Promise<void> {
-	if (getDoc().pages.length === 0) {
-		showLanding();
-		return;
-	}
-	await enterResult();
-}
-
-// Falls back to the landing and shows the error inline.
-function reportScanError(error: unknown): void {
-	const message = error instanceof Error ? error.message : String(error);
-	console.error("Scanning error:", error);
-	showLanding();
-	homeError.innerHTML = `<div class="error-message">Scanning error: ${message}</div>`;
-}
-
-// Show the scanner stage and open the camera, surfacing any failure.
-async function openScanner(): Promise<void> {
-	showScanner();
-	try {
-		await launchCamera();
-	} catch (error) {
-		reportScanError(error);
-	}
-}
-
-// Kicks off SDK init while the user is still reading the landing page.
-// Failures stay silent — the first user action retries init and surfaces it.
+// Load the engines while the user reads the landing page. A failure shows when
+// the user starts a scan, because scan() fails the same way.
 export function preloadScanner(): void {
-	ensureScanner().catch((error) => {
-		console.error("Scanner preload failed:", error);
-		ready = null;
-	});
+	documentScanner.preload().catch((error: unknown) => console.error("Preload failed:", error));
 }
 
-// Landing entry point (mobile Continue + desktop camera button).
-export async function startScanFlow(): Promise<void> {
-	startCameraScanButton.disabled = true;
-	desktopProceedButton.disabled = true;
-	homeError.innerHTML = "";
+// Run one scan. A success shows the result, and the next scan starts empty. A
+// cancel returns to the landing page. A failure shows its reason there, and
+// keeps the pages, so that the next scan carries on with them.
+async function scan(): Promise<void> {
+	for (const button of scanButtons) button.disabled = true;
 	try {
-		await ensureScanner();
-		await openScanner();
-	} catch (error) {
-		reportScanError(error);
+		showScanner();
+		const result = await documentScanner.scan();
+		switch (result.status) {
+			case "success":
+				if (result.output?.format !== "pdf") throw new Error("The scan returned no PDF");
+				await enterResult(result.pages, result.output.document);
+				documentScanner.reset();
+				break;
+			case "cancelled":
+				showLanding();
+				break;
+			case "failed": {
+				console.error("Scan failed:", result.error);
+				showLanding();
+				// After a failed load, every later scan fails the same way.
+				const retry = result.error.kind === "engineLoad" ? " Reload the page to try again." : "";
+				showError(homeError, `Scanning error: ${result.error.message}${retry}`);
+				break;
+			}
+		}
 	} finally {
-		startCameraScanButton.disabled = false;
-		desktopProceedButton.disabled = false;
+		for (const button of scanButtons) button.disabled = false;
 	}
 }
 
-// Result-view "Restart scan": discard the scanned pages and start a fresh set.
+// Start a scan from the landing page, with the mobile Continue button or the
+// desktop camera button.
+export async function startScanFlow(): Promise<void> {
+	homeError.replaceChildren();
+	await scan();
+}
+
+// Drop the result and scan a new set, for the Restart scan button.
 export async function restartScan(): Promise<void> {
 	leaveResult();
-	clearDocument();
-	await openScanner();
+	await scan();
 }

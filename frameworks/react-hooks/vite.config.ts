@@ -1,20 +1,21 @@
 import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
-import { cpSync, existsSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
+import { resolve } from "node:path";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 
-// Mirror the SDK runtime resources from node_modules into public/ so the
-// engine, runtime data, and camera UI are self-hosted from this origin.
-const SDK_RESOURCES = [
-	"dynamsoft-document-scanner/dist",
-	"dynamsoft-capture-vision-bundle/dist",
-	"dynamsoft-capture-vision-data",
-];
+// Copy the engines' runtime files from node_modules into public/engine/, so that
+// this origin serves them. The loop replaces a copy of another version.
+const version = (dir: string): unknown =>
+	JSON.parse(readFileSync(`${dir}/package.json`, "utf8")).version;
 
-for (const pkg of SDK_RESOURCES) {
-	if (!existsSync(`public/${pkg}`)) {
-		cpSync(`node_modules/${pkg}`, `public/${pkg}`, { recursive: true });
-	}
+for (const engine of ["dynamsoft-capture-vision-bundle", "dynamsoft-document-viewer"]) {
+	const source = resolve(import.meta.dirname, "node_modules", engine);
+	const target = resolve(import.meta.dirname, "public/engine", engine);
+	if (existsSync(`${target}/package.json`) && version(source) === version(target)) continue;
+	rmSync(target, { recursive: true, force: true });
+	cpSync(`${source}/dist`, `${target}/dist`, { recursive: true });
+	cpSync(`${source}/package.json`, `${target}/package.json`);
 }
 
 export default defineConfig({

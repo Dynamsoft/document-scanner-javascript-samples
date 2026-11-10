@@ -1,37 +1,35 @@
 # Mobile Document Scanner — Online Demo
 
-A self-contained plain TypeScript + HTML + CSS sample of the [Dynamsoft Mobile Document Scanner SDK](https://www.dynamsoft.com/mobile-document-scanner/docs/web/index.html), deployed at <https://demo.dynamsoft.com/document-scanner/>. The demo has three phases — a landing screen, a multi-page scan loop, and a PDF result view. This is intended as the public demo for the SDK, a ready-to-fork template for integrators who want a similar end-to-end flow, and an end-to-end development guide for combining Mobile Document Scanner (MDS) with Document Viewer (DDV).
+A self-contained plain TypeScript + HTML + CSS sample of the [Dynamsoft Mobile Document Scanner SDK](https://www.dynamsoft.com/mobile-document-scanner/docs/web/index.html), deployed at <https://demo.dynamsoft.com/document-scanner/>. The demo has three views — a landing screen, a multi-page scan, and a PDF result view. It is the public demo for the SDK and a ready-to-fork template for integrators who want a similar end-to-end flow.
 
 ## Overview
 
 1. **Landing**: a "Continue" button on mobile, or a QR code + "Continue on Desktop" on wide viewports so phone users get nudged to the better camera path.
-2. **Scan loop**: the Document Scanner captures pages continuously (auto border detection + perspective correction); each corrected page lands in a shared DDV document. Exiting the camera drops into a DDV edit viewer where pages can be reviewed, rotated, cropped, reordered, or deleted — its toolbar relaunches the camera or finishes the session.
-3. **Result**: the pages are exported to a single PDF, shown in a scrollable read-only inset, with Re-scan (discard and start over), Download, and Return-home actions.
+2. **Scan**: one `scan()` call runs the document scanner's own screens. The capture screen takes each page with border detection and perspective correction. On the rectify screen, the user adjusts the boundary of the page. On the edit screen, the user reviews, rotates, filters, rectifies again, reorders, or deletes pages, adds more, and finishes. Cancel returns to the landing screen.
+3. **Result**: the scan returns the pages and a single PDF. The pages show in a scrollable read-only inset, with Restart scan (discard and start over) and Download actions.
 
 ## File layout
 
 ```
 demo/
-├── index.html               # markup for all three phases
+├── index.html               # markup for all three views
 ├── css/
-│   ├── index.css            # shared stylesheet — palette in :root tokens, scanner stage
+│   ├── index.css            # shared stylesheet — palette in :root tokens, view states
 │   ├── landing.css          # landing page, one for mobile and desktop
 │   └── result.css           # result view — header, PDF inset, action footer
 ├── deployment/              # parts of the live demo only; see "Deploy build"
 │   ├── vite-plugin.ts       # adds the parts below in the deploy build
 │   ├── chat.ts              # live-chat bridge
 │   ├── chat.css             # live-chat button
-│   └── web.config           # IIS MIME map for .data files
+│   └── web.config           # IIS redirect rule
 ├── tsconfig.json            # IDE/LSP project config (Vite handles build)
-├── vite.config.ts           # demo-build config: bundles src/ + mirrors SDK resources into public/
+├── vite.config.ts           # demo-build config: bundles src/ + copies the engines into public/engine/
 ├── assets/                  # static assets (logo, QR code)
 └── src/                     # TypeScript source
-    ├── dom.ts               # $<T>(id) helper, isMobile
-    ├── view.ts              # body[data-view] state, scanner-overlay sub-state, info menu
-    ├── license.ts           # VITE_DYNAMSOFT_LICENSE, or the public trial key
-    ├── ddv.ts               # DDV engine init, shared document, edit-viewer hub
-    ├── scanner.ts           # DocumentScanner instance + flow orchestration
-    ├── results.ts           # page-image inset, PDF export, download
+    ├── dom.ts               # $<T>(id) and error-notice helpers
+    ├── view.ts              # body[data-view] and body[data-phase] state, info menu
+    ├── scanner.ts           # DocumentScanner instance + scan flow
+    ├── results.ts           # page-image inset, PDF download
     └── index.ts             # entry — wires DOM events to the exports above
 ```
 
@@ -77,26 +75,22 @@ dist/
 ├── assets/                               # bundled demo + SDK ESM + styles
 │   ├── index-<hash>.js
 │   └── index-<hash>.css
-├── document-scanner.ui.xml               # camera UI template (scanner view)
-├── dynamsoft-capture-vision-bundle/      # DCV engine (WASM, workers)
-├── dynamsoft-capture-vision-data/        # DCV runtime data (preset templates, models)
-└── dynamsoft-document-viewer/dist/engine # DDV engine (WASM, workers)
+└── engine/
+    ├── dynamsoft-capture-vision-bundle/  # Capture Vision engine (WASM, workers)
+    └── dynamsoft-document-viewer/        # Document Viewer engine (WASM, workers, styles)
 ```
 
 `vite.config.ts` sets `base: "./"` so all paths in `dist/index.html` are relative — the same output works under any deploy base URL.
 
-## How the SDKs are loaded
+## How the SDK is loaded
 
-The TypeScript imports both SDKs as ES modules:
+The TypeScript imports the SDK as an ES module:
 
 ```ts
-import { DocumentScanner } from "dynamsoft-document-scanner";
-import { DDV } from "dynamsoft-document-viewer";
+import { DocumentScanner } from "@dynamsoft/document-scanner";
 ```
 
-Both engines are self-hosted: `vite.config.ts` mirrors `dynamsoft-capture-vision-bundle`, `dynamsoft-capture-vision-data` (the engine's preset templates and models), and DDV's `dist/engine` from `node_modules` into `public/`, and the demo points `engineResourcePaths` (scanner) and `DDV.Core.engineResourcePath` (viewer) at those mirrors — nothing is fetched from a CDN at runtime.
-
-`dynamsoft-document-viewer` is pinned to an exact version: Dynamsoft packages ship breaking changes in minor releases, so upgrades should be deliberate and verified against the scan/review/export flow.
+The document scanner imports its two engines, Dynamsoft Capture Vision and Dynamsoft Document Viewer, which the demo installs beside it. Both engines are self-hosted: `vite.config.ts` copies their runtime files from `node_modules` into `public/engine/`, and the demo points the `resources` setting at those copies — nothing is fetched from a CDN at runtime.
 
 ## Deploy build
 
@@ -118,4 +112,3 @@ If you fork the demo, you can delete the `deployment/` directory and the two lin
 
 - [User guide](https://www.dynamsoft.com/mobile-document-scanner/docs/web/guides/index.html)
 - [`DocumentScanner` API](https://www.dynamsoft.com/mobile-document-scanner/docs/web/api-reference/index.html)
-- [Dynamsoft Document Viewer docs](https://www.dynamsoft.com/document-viewer/docs/introduction/index.html)

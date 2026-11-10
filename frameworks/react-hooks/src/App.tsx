@@ -1,61 +1,52 @@
-import { useEffect, useRef, useState } from "react";
-import { DocumentScanner } from "dynamsoft-document-scanner";
+import { useEffect, useState } from "react";
+import { DocumentScanner, type ScanResult } from "@dynamsoft/document-scanner";
 import "./App.css";
 
+// The page images to show, or the reason there are none.
+type Shown = { images: string[]; message: string };
+
+// Draw each scanned page, or say why there is none.
+async function describe(result: ScanResult): Promise<Shown> {
+	switch (result.status) {
+		case "success": {
+			const canvases = await Promise.all(result.pages.map((page) => page.processed.toCanvas()));
+			return { images: canvases.map((canvas) => canvas.toDataURL("image/png")), message: "" };
+		}
+		case "cancelled":
+			return { images: [], message: "No document scanned. Reload the page to try again." };
+		case "failed":
+			return { images: [], message: `The scan failed: ${result.error.message}` };
+	}
+}
+
 function App() {
-	const [result, setResult] = useState({ image: "", message: "" });
-	const scannerRef = useRef<DocumentScanner | null>(null);
+	const [result, setResult] = useState<Shown>({ images: [], message: "" });
 
 	useEffect(() => {
-		// Prevent double initialization
-		if (scannerRef.current) {
-			return;
-		}
-
-		async function init() {
-			try {
-				const documentScanner = new DocumentScanner({
-					license: "YOUR_LICENSE_KEY_HERE", // Replace with your Dynamsoft license key
-					// Self-host the engine, runtime data, and camera UI (mirrored into
-					// public/ by vite.config.ts).
-					engineResourcePaths: {
-						dcvBundle: "/dynamsoft-capture-vision-bundle/dist",
-						dcvData: "/dynamsoft-capture-vision-data",
-					},
-					scannerViewConfig: {
-						cameraEnhancerUIPath: "/dynamsoft-document-scanner/dist/document-scanner.ui.xml",
-						enableAutoCropMode: true,
-						enableSmartCaptureMode: true,
-					},
-				});
-				scannerRef.current = documentScanner;
-
-				const scanResult = await documentScanner.launch();
-
-				if (scanResult?.correctedImageResult) {
-					setResult({
-						image: scanResult.correctedImageResult.toCanvas().toDataURL("image/png"),
-						message: "",
-					});
-				} else {
-					setResult({ image: "", message: "No image scanned. Please try again." });
-				}
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(message);
-				alert(message);
-			}
-		}
-
-		const pInit = init();
-
+		const documentScanner = new DocumentScanner({
+			license: "YOUR_LICENSE_KEY_HERE", // Replace with your Dynamsoft license key
+			// Self-host the engines, which vite.config.ts copies into public/engine/.
+			resources: {
+				captureVision: { dcvBundle: "/engine/dynamsoft-capture-vision-bundle/dist" },
+				documentViewer: "/engine/dynamsoft-document-viewer/dist/engine",
+			},
+		});
+		// Strict mode mounts the component twice. dispose() cancels the scan of the
+		// first mount, and its result must not replace the second one's.
+		let mounted = true;
+		void documentScanner
+			.scan()
+			.then(describe)
+			.catch((error: unknown) => ({
+				images: [],
+				message: `Could not show the scan: ${error instanceof Error ? error.message : String(error)}`,
+			}))
+			.then((shown) => {
+				if (mounted) setResult(shown);
+			});
 		return () => {
-			pInit
-				.then(() => {
-					scannerRef.current?.dispose();
-					scannerRef.current = null;
-				})
-				.catch(() => {});
+			mounted = false;
+			documentScanner.dispose();
 		};
 	}, []);
 
@@ -65,7 +56,9 @@ function App() {
 				<h2 className="mds-title-text">Hello World for React</h2>
 			</div>
 			<div className="mds-result-container">
-				{result.image && <img className="result-img" src={result.image} alt="scanned document" />}
+				{result.images.map((image, index) => (
+					<img key={index} className="result-img" src={image} alt={`Scanned page ${index + 1}`} />
+				))}
 				{result.message && <div className="result-data">{result.message}</div>}
 			</div>
 		</div>

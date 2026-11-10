@@ -18,18 +18,13 @@
 							{ "glob": "**/*", "input": "public" },
 							{
 								"glob": "**/*",
-								"input": "node_modules/dynamsoft-document-scanner/dist",
-								"output": "dynamsoft-document-scanner/dist"
-							},
-							{
-								"glob": "**/*",
 								"input": "node_modules/dynamsoft-capture-vision-bundle/dist",
-								"output": "dynamsoft-capture-vision-bundle/dist"
+								"output": "engine/dynamsoft-capture-vision-bundle/dist"
 							},
 							{
 								"glob": "**/*",
-								"input": "node_modules/dynamsoft-capture-vision-data",
-								"output": "dynamsoft-capture-vision-data"
+								"input": "node_modules/dynamsoft-document-viewer/dist",
+								"output": "engine/dynamsoft-document-viewer/dist"
 							}
 						],
 						"styles": ["src/styles.css"]
@@ -48,9 +43,9 @@
 						"ssl": true,
 						"prebundle": {
 							"exclude": [
-								"dynamsoft-document-scanner",
+								"@dynamsoft/document-scanner",
 								"dynamsoft-capture-vision-bundle",
-								"dynamsoft-capture-vision-data"
+								"dynamsoft-document-viewer"
 							]
 						}
 					},

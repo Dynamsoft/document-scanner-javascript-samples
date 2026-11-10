@@ -1,9 +1,9 @@
-// Result stage — renders the scanned pages into the scrollable inset,
-// generates the PDF at entry, and owns the blob URLs for both.
+// Result view — renders the scanned pages into the scrollable inset, and owns
+// the blob URLs of the pages and the PDF.
 
-import { $ } from "./dom.js";
+import type { ScannedPages } from "@dynamsoft/document-scanner";
+import { $, showError } from "./dom.js";
 import { showResult } from "./view.js";
-import { getDoc } from "./ddv.js";
 
 const resultError = $("result-error");
 const insetPages = $("inset-pages");
@@ -12,33 +12,28 @@ const downloadButton = document.querySelector<HTMLButtonElement>(".btn-download"
 let pdfUrl: string | null = null;
 let pageUrls: string[] = [];
 
-// Exports the PDF up front (not on download click) so errors surface
-// immediately and repeat downloads reuse one blob.
-export async function enterResult(): Promise<void> {
-	resultError.innerHTML = "";
-	downloadButton.disabled = true;
+// The scan encodes the PDF before it ends, so a download reuses one blob.
+export async function enterResult(pages: ScannedPages, pdf: Blob): Promise<void> {
+	resultError.replaceChildren();
+	insetPages.replaceChildren();
+	pdfUrl = URL.createObjectURL(pdf);
+	downloadButton.disabled = false;
 	showResult();
 	try {
-		const doc = getDoc();
-		// The display rendition includes any rotate/crop/filter edits from the
-		// hub, so the inset always matches the exported PDF.
-		insetPages.innerHTML = "";
-		for (const [index, pageUid] of doc.pages.entries()) {
-			const { data } = await doc.getPageData(pageUid).display();
-			const url = URL.createObjectURL(data);
-			pageUrls.push(url);
+		// The processed image includes the edits of the edit screen, so the inset
+		// matches the PDF.
+		const blobs = await Promise.all(pages.map((page) => page.processed.toBlob()));
+		pageUrls = blobs.map((blob) => URL.createObjectURL(blob));
+		for (const [index, url] of pageUrls.entries()) {
 			const img = document.createElement("img");
 			img.src = url;
 			img.alt = `Scanned page ${index + 1}`;
 			insetPages.appendChild(img);
 		}
-		const blob = await doc.saveToPdf();
-		pdfUrl = URL.createObjectURL(blob);
-		downloadButton.disabled = false;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		console.error("Result error:", error);
-		resultError.innerHTML = `<div class="error-message">Failed to prepare the document: ${message}</div>`;
+		showError(resultError, `Failed to show the pages: ${message}`);
 	}
 }
 
@@ -48,9 +43,9 @@ export function leaveResult(): void {
 	pdfUrl = null;
 	for (const url of pageUrls) URL.revokeObjectURL(url);
 	pageUrls = [];
-	insetPages.innerHTML = "";
+	insetPages.replaceChildren();
 	downloadButton.disabled = true;
-	resultError.innerHTML = "";
+	resultError.replaceChildren();
 }
 
 export function downloadPdf(): void {

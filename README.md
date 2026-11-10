@@ -2,7 +2,7 @@
 
 These samples show how to use the `DocumentScanner` API of the
 [Dynamsoft Mobile Document Scanner SDK](https://github.com/Dynamsoft/document-scanner-javascript)
-to capture and correct a document with the camera.
+to scan documents with the camera.
 
 - [Demo](./demo): the demo deployed at
 	[https://demo.dynamsoft.com/document-scanner/](https://demo.dynamsoft.com/document-scanner/), in plain TypeScript
