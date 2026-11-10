@@ -1,0 +1,57 @@
+name: Check
+
+# Format, lint and type check every sample. Each sample is a separate npm
+# project, so it is installed and checked in its own directory: type-aware lint
+# needs that project's node_modules.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md"]
+  pull_request:
+    paths-ignore: ["**/*.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  Check-Sample:
+    name: Check-Sample (${{ matrix.sample }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        sample:
+          - demo
+          - frameworks/angular
+          - frameworks/react-hooks
+          - frameworks/vue
+
+    steps:
+      - name: Get Source
+        uses: actions/checkout@v7
+
+      - name: Set up Vite+ and install
+        uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          # Reads the Node requirement from devEngines.runtime
+          node-version-file: ${{ matrix.sample }}/package.json
+          cache: true
+          cache-dependency-path: ${{ matrix.sample }}/package-lock.json
+          run-install: |
+            - cwd: ./${{ matrix.sample }}
+              args: ["--frozen-lockfile"]
+
+      - name: Format, lint and type check
+        working-directory: ${{ matrix.sample }}
+        run: vp check
+
+      - name: Build
+        # Templates and `strictTemplates` only checked by Angular compiler.
+        if: matrix.sample == 'frameworks/angular'
+        working-directory: ${{ matrix.sample }}
+        run: vp run build

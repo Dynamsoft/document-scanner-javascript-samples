@@ -1,0 +1,32 @@
+{
+	"name": "mds-vue",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vp dev",
+		"build": "vp build",
+		"preview": "vp preview"
+	},
+	"dependencies": {
+		"dynamsoft-document-scanner": "1.5.0",
+		"vue": "^3.5.38"
+	},
+	"devDependencies": {
+		"@types/node": "^24.19.2",
+		"@vitejs/plugin-basic-ssl": "^2.3.0",
+		"@vitejs/plugin-vue": "^6.0.7",
+		"vite": "npm:@voidzero-dev/vite-plus-core@0.2.6",
+		"vite-plus": "0.2.6"
+	},
+	"overrides": {
+		"vite": "npm:@voidzero-dev/vite-plus-core@0.2.6"
+	},
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": ">=24.11.0",
+			"onFail": "error"
+		}
+	}
+}

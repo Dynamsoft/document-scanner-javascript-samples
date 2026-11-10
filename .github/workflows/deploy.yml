@@ -1,0 +1,52 @@
+name: Deploy Demo
+
+# Builds the demo with the tracking and chat of the live site, and uploads it.
+# The keys are repository variables, because the live page shows them anyway.
+# The FTP credentials are secrets.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  Deploy-Demo:
+    # Only the main branch deploys.
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Get Source
+        uses: actions/checkout@v7
+
+      - name: Set up Vite+ and install
+        uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          node-version-file: demo/package.json
+          cache: true
+          cache-dependency-path: demo/package-lock.json
+          run-install: |
+            - cwd: ./demo
+              args: ["--frozen-lockfile"]
+
+      - name: Build
+        working-directory: demo
+        run: vp build --mode deploy
+        env:
+          GTM_ID: ${{ vars.GTM_ID }}
+          COMM100_SITE_ID: ${{ vars.COMM100_SITE_ID }}
+          COMM100_CODE_PLAN: ${{ vars.COMM100_CODE_PLAN }}
+          VITE_DYNAMSOFT_LICENSE: ${{ vars.VITE_DYNAMSOFT_LICENSE }}
+
+      - name: Upload
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_DEMO_SERVER }}
+          username: ${{ secrets.FTP_DEMO_USERNAME }}
+          password: ${{ secrets.FTP_DEMO_PASSWORD }}
+          port: 21
+          local-dir: ./demo/dist/
+          server-dir: /Demo.dynamsoft.com/document-scanner/
