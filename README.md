@@ -11,4 +11,4 @@ to scan documents with the camera.
 - [Vue](./frameworks/vue)
 
 Each sample is a separate npm project. The guide for the framework samples is on the documentation site:
-[Framework Samples](https://www.dynamsoft.com/mobile-document-scanner/docs/web/guide/frameworks.html).
+[Framework Samples](https://www.dynamsoft.com/mobile-document-scanner/docs/web/guides/frameworks.html).
