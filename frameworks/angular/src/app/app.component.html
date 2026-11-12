@@ -3,11 +3,9 @@
 		<h2 class="mds-title-text">Hello World for Angular</h2>
 	</div>
 	<div class="mds-result-container">
-		@for (image of result().images; track $index) {
-			<img class="result-img" [src]="image" [alt]="'Scanned page ' + ($index + 1)" />
-		}
-		@if (result().message) {
-			<div class="result-data">{{ result().message }}</div>
+		<p class="result-data">{{ shown().status }}</p>
+		@if (shown().pdf; as pdf) {
+			<a [href]="pdf" download="scan.pdf">Download the PDF</a>
 		}
 	</div>
 </div>

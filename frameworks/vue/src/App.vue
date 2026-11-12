@@ -4,14 +4,8 @@
 			<h2 class="mds-title-text">Hello World for Vue</h2>
 		</div>
 		<div class="mds-result-container">
-			<img
-				v-for="(image, index) in result.images"
-				:key="index"
-				class="result-img"
-				:src="image"
-				:alt="`Scanned page ${index + 1}`"
-			/>
-			<div v-if="result.message" class="result-data">{{ result.message }}</div>
+			<p class="result-data">{{ shown.status }}</p>
+			<a v-if="shown.pdf" :href="shown.pdf" download="scan.pdf">Download the PDF</a>
 		</div>
 	</div>
 </template>
@@ -20,10 +14,10 @@
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { DocumentScanner, type ScanResult } from "@dynamsoft/document-scanner";
 
-// The page images to show, or the reason there are none.
-type Shown = { images: string[]; message: string };
+// The status line, and the URL of the scanned PDF after a successful scan.
+type Shown = { status: string; pdf?: string };
 
-const result = ref<Shown>({ images: [], message: "" });
+const shown = ref<Shown>({ status: "Scanning…" });
 
 const documentScanner = new DocumentScanner({
 	license: "YOUR_LICENSE_KEY_HERE", // Replace with your Dynamsoft license key
@@ -32,29 +26,27 @@ const documentScanner = new DocumentScanner({
 		captureVision: { dcvBundle: "/engine/dynamsoft-capture-vision-bundle/dist" },
 		documentViewer: "/engine/dynamsoft-document-viewer/dist/engine",
 	},
+	output: { format: "pdf" },
 });
 
-// Draw each scanned page, or say why there is none.
-async function describe(scan: ScanResult): Promise<Shown> {
-	switch (scan.status) {
-		case "success": {
-			const canvases = await Promise.all(scan.pages.map((page) => page.processed.toCanvas()));
-			return { images: canvases.map((canvas) => canvas.toDataURL("image/png")), message: "" };
-		}
-		case "cancelled":
-			return { images: [], message: "No document scanned. Reload the page to try again." };
+// Say how the scan ended, and link the PDF when there is one.
+function describe(result: ScanResult): Shown {
+	switch (result.status) {
+		case "success":
+			return {
+				status: `Scanned ${result.pages.length} page(s).`,
+				pdf:
+					result.output?.format === "pdf" ? URL.createObjectURL(result.output.document) : undefined,
+			};
 		case "failed":
-			return { images: [], message: `The scan failed: ${scan.error.message}` };
+			return { status: `The scan failed (${result.error.kind}): ${result.error.message}` };
+		case "cancelled":
+			return { status: "The scan was cancelled." };
 	}
 }
 
 onMounted(async () => {
-	try {
-		result.value = await describe(await documentScanner.scan());
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		result.value = { images: [], message: `Could not show the scan: ${message}` };
-	}
+	shown.value = describe(await documentScanner.scan());
 });
 
 onBeforeUnmount(() => {
@@ -88,12 +80,7 @@ body {
 	width: 100%;
 }
 
-.mds-result-container .result-img {
-	width: 100%;
-}
-
 .mds-result-container .result-data {
 	white-space: pre-line;
-	padding-bottom: 20px;
 }
 </style>

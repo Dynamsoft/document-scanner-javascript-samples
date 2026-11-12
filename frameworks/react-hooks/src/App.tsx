@@ -2,25 +2,27 @@ import { useEffect, useState } from "react";
 import { DocumentScanner, type ScanResult } from "@dynamsoft/document-scanner";
 import "./App.css";
 
-// The page images to show, or the reason there are none.
-type Shown = { images: string[]; message: string };
+// The status line, and the URL of the scanned PDF after a successful scan.
+type Shown = { status: string; pdf?: string };
 
-// Draw each scanned page, or say why there is none.
-async function describe(result: ScanResult): Promise<Shown> {
+// Say how the scan ended, and link the PDF when there is one.
+function describe(result: ScanResult): Shown {
 	switch (result.status) {
-		case "success": {
-			const canvases = await Promise.all(result.pages.map((page) => page.processed.toCanvas()));
-			return { images: canvases.map((canvas) => canvas.toDataURL("image/png")), message: "" };
-		}
-		case "cancelled":
-			return { images: [], message: "No document scanned. Reload the page to try again." };
+		case "success":
+			return {
+				status: `Scanned ${result.pages.length} page(s).`,
+				pdf:
+					result.output?.format === "pdf" ? URL.createObjectURL(result.output.document) : undefined,
+			};
 		case "failed":
-			return { images: [], message: `The scan failed: ${result.error.message}` };
+			return { status: `The scan failed (${result.error.kind}): ${result.error.message}` };
+		case "cancelled":
+			return { status: "The scan was cancelled." };
 	}
 }
 
 function App() {
-	const [result, setResult] = useState<Shown>({ images: [], message: "" });
+	const [shown, setShown] = useState<Shown>({ status: "Scanning…" });
 
 	useEffect(() => {
 		const documentScanner = new DocumentScanner({
@@ -30,20 +32,14 @@ function App() {
 				captureVision: { dcvBundle: "/engine/dynamsoft-capture-vision-bundle/dist" },
 				documentViewer: "/engine/dynamsoft-document-viewer/dist/engine",
 			},
+			output: { format: "pdf" },
 		});
 		// Strict mode mounts the component twice. dispose() cancels the scan of the
 		// first mount, and its result must not replace the second one's.
 		let mounted = true;
-		void documentScanner
-			.scan()
-			.then(describe)
-			.catch((error: unknown) => ({
-				images: [],
-				message: `Could not show the scan: ${error instanceof Error ? error.message : String(error)}`,
-			}))
-			.then((shown) => {
-				if (mounted) setResult(shown);
-			});
+		void documentScanner.scan().then((result) => {
+			if (mounted) setShown(describe(result));
+		});
 		return () => {
 			mounted = false;
 			documentScanner.dispose();
@@ -56,10 +52,12 @@ function App() {
 				<h2 className="mds-title-text">Hello World for React</h2>
 			</div>
 			<div className="mds-result-container">
-				{result.images.map((image, index) => (
-					<img key={index} className="result-img" src={image} alt={`Scanned page ${index + 1}`} />
-				))}
-				{result.message && <div className="result-data">{result.message}</div>}
+				<p className="result-data">{shown.status}</p>
+				{shown.pdf && (
+					<a href={shown.pdf} download="scan.pdf">
+						Download the PDF
+					</a>
+				)}
 			</div>
 		</div>
 	);

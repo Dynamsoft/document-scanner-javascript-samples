@@ -1,20 +1,22 @@
 import { Component, OnInit, OnDestroy, signal } from "@angular/core";
 import { DocumentScanner, type ScanResult } from "@dynamsoft/document-scanner";
 
-// The page images to show, or the reason there are none.
-type Shown = { images: string[]; message: string };
+// The status line, and the URL of the scanned PDF after a successful scan.
+type Shown = { status: string; pdf?: string };
 
-// Draw each scanned page, or say why there is none.
-async function describe(result: ScanResult): Promise<Shown> {
+// Say how the scan ended, and link the PDF when there is one.
+function describe(result: ScanResult): Shown {
 	switch (result.status) {
-		case "success": {
-			const canvases = await Promise.all(result.pages.map((page) => page.processed.toCanvas()));
-			return { images: canvases.map((canvas) => canvas.toDataURL("image/png")), message: "" };
-		}
-		case "cancelled":
-			return { images: [], message: "No document scanned. Reload the page to try again." };
+		case "success":
+			return {
+				status: `Scanned ${result.pages.length} page(s).`,
+				pdf:
+					result.output?.format === "pdf" ? URL.createObjectURL(result.output.document) : undefined,
+			};
 		case "failed":
-			return { images: [], message: `The scan failed: ${result.error.message}` };
+			return { status: `The scan failed (${result.error.kind}): ${result.error.message}` };
+		case "cancelled":
+			return { status: "The scan was cancelled." };
 	}
 }
 
@@ -24,7 +26,7 @@ async function describe(result: ScanResult): Promise<Shown> {
 	styleUrl: "./app.component.css",
 })
 export class AppComponent implements OnInit, OnDestroy {
-	result = signal<Shown>({ images: [], message: "" });
+	shown = signal<Shown>({ status: "Scanning…" });
 	private documentScanner = new DocumentScanner({
 		license: "YOUR_LICENSE_KEY_HERE", // Replace with your Dynamsoft license key
 		// Self-host the engines, which angular.json copies into engine/.
@@ -32,15 +34,11 @@ export class AppComponent implements OnInit, OnDestroy {
 			captureVision: { dcvBundle: "/engine/dynamsoft-capture-vision-bundle/dist" },
 			documentViewer: "/engine/dynamsoft-document-viewer/dist/engine",
 		},
+		output: { format: "pdf" },
 	});
 
 	async ngOnInit() {
-		try {
-			this.result.set(await describe(await this.documentScanner.scan()));
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			this.result.set({ images: [], message: `Could not show the scan: ${message}` });
-		}
+		this.shown.set(describe(await this.documentScanner.scan()));
 	}
 
 	ngOnDestroy() {
