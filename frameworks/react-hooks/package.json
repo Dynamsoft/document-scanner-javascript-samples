@@ -9,7 +9,7 @@
 		"preview": "vp preview"
 	},
 	"dependencies": {
-		"@dynamsoft/document-scanner": "2.0.0",
+		"@dynamsoft/document-scanner": "^2.0.0",
 		"dynamsoft-capture-vision-bundle": "~3.6.5000",
 		"dynamsoft-document-viewer": "~5.0.0",
 		"react": "^19.2.7",

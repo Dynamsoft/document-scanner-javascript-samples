@@ -9,7 +9,7 @@
 	"dependencies": {
 		"@angular/core": "^22.2.5",
 		"@angular/platform-browser": "^22.2.5",
-		"@dynamsoft/document-scanner": "2.0.0",
+		"@dynamsoft/document-scanner": "^2.0.0",
 		"dynamsoft-capture-vision-bundle": "~3.6.5000",
 		"dynamsoft-document-viewer": "~5.0.0"
 	},
