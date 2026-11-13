@@ -27,7 +27,7 @@ demo/
 ├── assets/                  # static assets (logo, QR code)
 └── src/                     # TypeScript source
     ├── dom.ts               # $<T>(id) and error-notice helpers
-    ├── view.ts              # body[data-view] and body[data-phase] state, info menu
+    ├── view.ts              # body[data-view] state, info menu
     ├── scanner.ts           # DocumentScanner instance + scan flow
     ├── results.ts           # page-image inset, PDF download
     └── index.ts             # entry — wires DOM events to the exports above

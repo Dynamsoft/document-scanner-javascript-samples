@@ -3,7 +3,7 @@
 
 import { DocumentScanner } from "@dynamsoft/document-scanner";
 import { $, showError } from "./dom.js";
-import { showLanding, showPhase, showScanner } from "./view.js";
+import { showLanding, showScanner } from "./view.js";
 import { enterResult, leaveResult } from "./results.js";
 
 const homeError = $("home-error");
@@ -29,10 +29,6 @@ const documentScanner = new DocumentScanner({
 		documentViewer: engineUrl("dynamsoft-document-viewer/dist/engine"),
 	},
 	output: { format: "pdf" },
-});
-
-documentScanner.on("navigate", (navigation) => {
-	if (navigation.type === "phase") showPhase(navigation.to);
 });
 
 // Load the engines while the user reads the landing page. A failure shows when

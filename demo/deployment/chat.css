@@ -1,7 +1,6 @@
-/* Live-chat trigger. Visible on landing (all viewports), and on desktop on the
-   result and the document scanner's capture and rectify screens, but not on its
-   edit screen. Replaces Comm100's native float button. GTM loads the Cookiebot
-   consent banner. */
+/* Live-chat trigger. Visible on the landing page only, at every viewport.
+   Replaces Comm100's native float button. GTM loads the Cookiebot consent
+   banner. */
 
 .livechat-btn {
 	display: none;
@@ -36,22 +35,6 @@
 
 body[data-view="landing"] .livechat-btn {
 	display: inline-block;
-}
-
-/* lg and up. */
-@media (min-width: 1024px) {
-	body[data-view="result"] .livechat-btn,
-	body[data-view="scanner"][data-phase="capture"] .livechat-btn,
-	body[data-view="scanner"][data-phase="rectify"] .livechat-btn {
-		display: inline-block;
-	}
-}
-
-/* Above the document scanner. Its z-index, 2000000000, is the private
-   --mds-z-scanner of @dynamsoft/document-scanner 2.0 on body > .mds-scanner, so
-   check it on each upgrade. */
-body[data-view="scanner"] .livechat-btn {
-	z-index: 2000000001;
 }
 
 /* Comm100 sets inline styles on its float button, hence !important. */
